@@ -100,9 +100,29 @@ def test_upload_clean_file():
     with urllib.request.urlopen(req) as resp:
         data = json.loads(resp.read().decode())
         total = data.get("summary", {}).get("total_issues", 0)
-        log_test("Clean Code Upload (0 Findings handling)",
+        log_test("Python Clean Code Upload (0 Findings handling)",
                  resp.status == 200 and total == 0,
                  f"Total findings: {total}, Message: {data.get('message')}")
+
+def test_upload_js_clean():
+    url = f"{BASE_URL}/api/analyze"
+    clean_js = b'''// Clean JavaScript helper
+function addNumbers(a, b) {
+    if (typeof a !== "number" || typeof b !== "number") {
+        throw new TypeError("Inputs must be numbers");
+    }
+    return a + b;
+}
+export { addNumbers };
+'''
+    req = multipart_post(url, "clean_test.js", clean_js)
+    with urllib.request.urlopen(req) as resp:
+        data = json.loads(resp.read().decode())
+        total = data.get("summary", {}).get("total_issues", 0)
+        has_eslint = "ESLint" in data.get("tool_used", "")
+        log_test("JavaScript Clean Code Upload (0 Findings handling)",
+                 resp.status == 200 and total == 0 and has_eslint,
+                 f"Tool: {data.get('tool_used')}, Total findings: {total}, Message: {data.get('message')}")
 
 def test_invalid_extension():
     url = f"{BASE_URL}/api/analyze"
@@ -149,6 +169,7 @@ if __name__ == "__main__":
     test_upload_python_vulnerable()
     test_upload_js_vulnerable()
     test_upload_clean_file()
+    test_upload_js_clean()
     test_invalid_extension()
     test_empty_file()
     test_file_size_limit()

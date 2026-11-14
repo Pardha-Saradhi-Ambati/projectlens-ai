@@ -1,0 +1,14 @@
+{
+  "name": "projectlens-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ProjectLens AI — Static-analysis code review platform",
+  "scripts": {
+    "lint:js": "eslint",
+    "test:backend": "python backend/test_backend_api.py",
+    "start": "uvicorn main:app --host 0.0.0.0 --port 8000"
+  },
+  "dependencies": {
+    "eslint": "^10.15.0"
+  }
+}

@@ -4,8 +4,9 @@ from typing import List
 
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
-ESLINT_CONFIG_PATH = str(BASE_DIR / "eslint.config.mjs")
-TEMP_DIR = BASE_DIR / ".temp"
+ROOT_DIR = BASE_DIR.parent
+ESLINT_CONFIG_PATH = str((BASE_DIR / "eslint.config.mjs").resolve())
+TEMP_DIR = (BASE_DIR / ".temp").resolve()
 
 # Ensure isolated temporary scan directory exists
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
@@ -17,8 +18,10 @@ ALLOWED_EXTENSIONS = {
     ".js": "javascript",
 }
 
-# Subprocess Constraints
-ANALYSIS_TIMEOUT_SECONDS = 25
+# Subprocess Constraints & Engine Timeouts
+ANALYSIS_TIMEOUT_SECONDS = int(os.getenv("ANALYSIS_TIMEOUT_SECONDS", "25"))
+ESLINT_INIT_TIMEOUT_SECONDS = int(os.getenv("ESLINT_INIT_TIMEOUT_SECONDS", "30"))
+BANDIT_INIT_TIMEOUT_SECONDS = int(os.getenv("BANDIT_INIT_TIMEOUT_SECONDS", "15"))
 
 # Server Binding Constraints for Deployment (PaaS like Render, Railway, Fly.io, Heroku)
 HOST = os.getenv("HOST", "0.0.0.0")

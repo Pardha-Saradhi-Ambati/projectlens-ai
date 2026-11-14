@@ -130,8 +130,9 @@ venv\Scripts\activate
 # macOS / Linux
 # source venv/bin/activate
 
-# Install backend dependencies
+# Install backend dependencies (Python packages + ESLint local dependency)
 pip install -r requirements.txt
+npm install
 
 # Start the FastAPI server
 python run.py
@@ -192,11 +193,16 @@ Expected output:
 
 ### 1. Dual-Runtime Backend Requirement
 Because ProjectLens AI performs static analysis on both Python and JavaScript files:
-* The backend execution environment **must** have both **Python 3.10+** and **Node.js 18+ (with npm/npx)** installed.
-* **Bandit** runs via Python.
-* **ESLint** runs via Node (`npx` or `eslint` binary).
-* **Docker Deployment (Recommended)**: Use the provided [Dockerfile](file:///c:/Users/HP/OneDrive/Documents/projectLens-AI/Dockerfile). It uses `python:3.13-slim` and installs `nodejs` and global `eslint`, ensuring both engines are ready out-of-the-box.
-* **PaaS Buildpacks (e.g., Heroku, Render, Railway)**: If deploying without Docker, add both the **Node.js** buildpack and the **Python** buildpack to your project settings.
+* The backend execution environment **must** have both **Python 3.10+** and **Node.js 18+** installed.
+* **Bandit** runs via Python (`python -m bandit`).
+* **ESLint** runs locally from project `node_modules` (`node node_modules/eslint/bin/eslint.js`).
+* **Render Web Service Configuration**:
+  * **Environment**: `Python`
+  * **Build Command**: `pip install -r requirements.txt && npm install` (or `./build.sh`)
+  * **Start Command**:
+    * If Root Directory is `.` (repo root): `uvicorn main:app --host 0.0.0.0 --port $PORT`
+    * If Root Directory is `backend`: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+* **Docker Deployment**: Use the provided [Dockerfile](file:///c:/Users/HP/OneDrive/Documents/projectLens-AI/Dockerfile). It installs Python 3.13 and Node.js 20, copies `package.json`, runs `npm install --omit=dev`, and installs `requirements.txt`.
 
 ### 2. Environment Variables
 

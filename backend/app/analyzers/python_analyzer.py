@@ -2,10 +2,16 @@ import sys
 import subprocess
 import json
 import logging
-from typing import List, Tuple
+from pathlib import Path
+from typing import List, Tuple, Optional
+
 from app.analyzers.base import BaseAnalyzer
 from app.models import Finding, FindingSeverity
-from app.config import ANALYSIS_TIMEOUT_SECONDS
+from app.config import (
+    ANALYSIS_TIMEOUT_SECONDS,
+    BANDIT_INIT_TIMEOUT_SECONDS,
+    BASE_DIR
+)
 from app.recommendation_engine import get_bandit_guidance
 
 logger = logging.getLogger(__name__)
@@ -16,35 +22,50 @@ class PythonBanditAnalyzer(BaseAnalyzer):
 
     def __init__(self):
         self._python_exec = sys.executable
+        self._availability_cache: Optional[Tuple[bool, str]] = None
 
-    def is_available(self) -> Tuple[bool, str]:
+    def is_available(self, force_refresh: bool = False) -> Tuple[bool, str]:
         """Check if Bandit is available via python -m bandit."""
+        if not force_refresh and self._availability_cache is not None and self._availability_cache[0] is True:
+            return self._availability_cache
+
         try:
             res = subprocess.run(
                 [self._python_exec, "-m", "bandit", "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5,
-                shell=False
+                timeout=BANDIT_INIT_TIMEOUT_SECONDS,
+                shell=False,
+                cwd=str(BASE_DIR.resolve())
             )
             if res.returncode == 0:
                 first_line = res.stdout.strip().split("\n")[0] if res.stdout else "Bandit available"
-                return True, first_line
-            return False, f"Bandit returned error code {res.returncode}: {res.stderr.strip()}"
+                self._availability_cache = (True, first_line)
+            else:
+                err_text = res.stderr.strip() or res.stdout.strip()
+                self._availability_cache = (False, f"Bandit returned error code {res.returncode}: {err_text}")
+        except subprocess.TimeoutExpired:
+            self._availability_cache = (False, f"Bandit initialization timed out after {BANDIT_INIT_TIMEOUT_SECONDS}s.")
         except Exception as e:
-            return False, f"Bandit not available: {str(e)}"
+            self._availability_cache = (False, f"Bandit not available: {str(e)}")
+
+        return self._availability_cache
 
     def analyze(self, file_path: str, original_filename: str) -> List[Finding]:
         """Run Bandit against target file and return parsed findings."""
         available, msg = self.is_available()
         if not available:
-            raise RuntimeError(f"Python analysis tool 'Bandit' cannot be executed: {msg}")
+            raise RuntimeError(f"Python static analysis engine (Bandit) cannot be executed: {msg}")
+
+        abs_file_path = str(Path(file_path).resolve())
+        cwd_path = str(BASE_DIR.resolve())
 
         # Secure subprocess execution:
         # 1. No shell=True
         # 2. Controlled argument list
         # 3. Timeout applied
-        cmd = [self._python_exec, "-m", "bandit", "-f", "json", file_path]
+        # 4. Explicit working directory
+        cmd = [self._python_exec, "-m", "bandit", "-f", "json", abs_file_path]
 
         try:
             proc = subprocess.run(
@@ -52,10 +73,11 @@ class PythonBanditAnalyzer(BaseAnalyzer):
                 capture_output=True,
                 text=True,
                 timeout=ANALYSIS_TIMEOUT_SECONDS,
-                shell=False
+                shell=False,
+                cwd=cwd_path
             )
         except subprocess.TimeoutExpired:
-            raise TimeoutError(f"Static analysis timed out after {ANALYSIS_TIMEOUT_SECONDS}s.")
+            raise TimeoutError(f"Python static analysis timed out after {ANALYSIS_TIMEOUT_SECONDS}s.")
         except Exception as e:
             raise RuntimeError(f"Failed to execute Bandit subprocess: {str(e)}")
 
@@ -82,7 +104,7 @@ class PythonBanditAnalyzer(BaseAnalyzer):
         for idx, item in enumerate(bandit_results):
             test_id = item.get("test_id", "")
             raw_severity = (item.get("issue_severity") or "LOW").upper()
-            
+
             # Map severity
             if raw_severity == "HIGH":
                 severity = FindingSeverity.HIGH

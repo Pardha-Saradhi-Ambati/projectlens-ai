@@ -12,12 +12,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g eslint \
     && apt-get purge -y --auto-remove curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Install Node.js project dependencies (ESLint)
+COPY package*.json ./
+RUN npm install --omit=dev
 
 # Install Python dependencies
 COPY requirements.txt .

@@ -170,10 +170,10 @@ def root():
 
 
 @app.get("/api/health", response_model=HealthResponse)
-def health_check():
+def health_check(refresh: bool = False):
     """Verify backend and static analysis tool availability."""
-    bandit_ok, bandit_msg = python_analyzer.is_available()
-    eslint_ok, eslint_msg = js_analyzer.is_available()
+    bandit_ok, bandit_msg = python_analyzer.is_available(force_refresh=refresh)
+    eslint_ok, eslint_msg = js_analyzer.is_available(force_refresh=refresh)
 
     return HealthResponse(
         status="healthy" if (bandit_ok and eslint_ok) else "degraded",
